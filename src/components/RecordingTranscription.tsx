@@ -29,23 +29,23 @@ const RecordingTranscription = ({
       setAudioUrl(url);
       setIsProcessing(true);
       
-      // Convert audio to base64 using a promise-based approach
       const processAudio = async () => {
         try {
           console.log("Audio blob type:", audioBlob.type);
           console.log("Audio blob size:", audioBlob.size, "bytes");
           
-          // Simple FileReader implementation with Promise
+          // Convert audio to base64
+          const reader = new FileReader();
           const base64Data = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
             reader.onloadend = () => resolve(reader.result as string);
             reader.onerror = reject;
             reader.readAsDataURL(audioBlob);
           });
           
-          console.log("Base64 conversion successful, length:", base64Data.length);
+          console.log("Base64 conversion successful");
           
-          // Call the Supabase Edge Function for transcription
+          // Call the transcription function
+          console.log("Calling transcribe-audio function...");
           const { data, error } = await supabase.functions.invoke('transcribe-audio', {
             body: { 
               audio: base64Data,
@@ -58,7 +58,7 @@ const RecordingTranscription = ({
             throw new Error(error.message || "Error calling transcription function");
           }
           
-          console.log("Transcription response:", data);
+          console.log("Transcription response received:", data);
           
           setIsProcessing(false);
           
@@ -75,6 +75,12 @@ const RecordingTranscription = ({
               description: "Could not transcribe audio. Please try again.",
               variant: "destructive"
             });
+            
+            // Add fallback for testing if needed
+            if (process.env.NODE_ENV === 'development') {
+              console.log("Using fallback text in development mode");
+              onTranscriptionComplete("This is fallback text since transcription failed.");
+            }
           }
         } catch (error) {
           console.error('Transcription error:', error);

@@ -28,35 +28,30 @@ serve(async (req) => {
       base64Data = audio.split(',')[1];
     }
     
-    // Convert base64 to binary in a safer way
-    let binaryData;
-    try {
-      // Convert base64 to binary string
-      const binaryString = atob(base64Data);
-      // Create a Uint8Array from the binary string
-      binaryData = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        binaryData[i] = binaryString.charCodeAt(i);
-      }
-    } catch (convError) {
-      console.error('Base64 conversion error:', convError);
-      throw new Error(`Failed to convert base64 to binary: ${convError.message}`);
+    // Convert base64 to binary
+    const binaryString = atob(base64Data);
+    const binaryData = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      binaryData[i] = binaryString.charCodeAt(i);
     }
     
+    // Create blob and form data
     const blob = new Blob([binaryData], { type: mimeType || 'audio/webm' });
-    
-    // Create form data
     const formData = new FormData();
     formData.append('file', blob, 'audio.webm');
     formData.append('model', 'whisper-1');
 
     console.log("Sending to OpenAI API...");
     
-    // Send to OpenAI
+    // Make sure we're using a string for the API key - this is critical
+    const apiKey = Deno.env.get('OPENAI_API_KEY') || '';
+    
+    // Send to OpenAI with proper headers
     const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
+        'Authorization': `Bearer ${apiKey}`,
+        // Remove any other headers that might cause issues
       },
       body: formData,
     });
