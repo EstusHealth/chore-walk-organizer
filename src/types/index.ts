@@ -14,4 +14,5 @@ export interface Room {
 export interface RecordingState {
   isRecording: boolean;
   audioURL: string | null;
+  recordingTime: number;
 }
