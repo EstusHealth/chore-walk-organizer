@@ -29,27 +29,28 @@ const RecordingTranscription = ({
       setAudioUrl(url);
       setIsProcessing(true);
       
-      // Use FileReader to properly read the blob
-      const reader = new FileReader();
-      reader.readAsDataURL(audioBlob); // Changed to readAsDataURL
-      
-      reader.onloadend = async () => {
+      // Convert audio to base64 using a promise-based approach
+      const processAudio = async () => {
         try {
           console.log("Audio blob type:", audioBlob.type);
-          console.log("Audio blob size:", audioBlob.size);
+          console.log("Audio blob size:", audioBlob.size, "bytes");
           
-          // Get base64 data from the result - this extracts just the base64 part
-          const base64Audio = reader.result?.toString().split(',')[1];
+          // Simple FileReader implementation with Promise
+          const base64Data = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(audioBlob);
+          });
           
-          if (!base64Audio) {
-            throw new Error('Failed to convert audio to base64');
-          }
-          
-          console.log("Base64 conversion successful, length:", base64Audio.length);
+          console.log("Base64 conversion successful, length:", base64Data.length);
           
           // Call the Supabase Edge Function for transcription
           const { data, error } = await supabase.functions.invoke('transcribe-audio', {
-            body: { audio: base64Audio, mimeType: audioBlob.type }
+            body: { 
+              audio: base64Data,
+              mimeType: audioBlob.type 
+            }
           });
           
           if (error) {
@@ -57,11 +58,18 @@ const RecordingTranscription = ({
             throw new Error(error.message || "Error calling transcription function");
           }
           
+          console.log("Transcription response:", data);
+          
           setIsProcessing(false);
           
           if (data?.text) {
+            toast({
+              title: "Transcription Complete",
+              description: "Successfully transcribed your recording",
+            });
             onTranscriptionComplete(data.text);
           } else {
+            console.error("No text in transcription response:", data);
             toast({
               title: "Transcription Error",
               description: "Could not transcribe audio. Please try again.",
@@ -76,22 +84,10 @@ const RecordingTranscription = ({
             description: error instanceof Error ? error.message : "Failed to transcribe audio",
             variant: "destructive"
           });
-          
-          // Fall back to simulated transcription in case of error
-          const mockTranscription = "This is a fallback transcription. It appears there was an issue with the transcription service. You can still add tasks manually.";
-          onTranscriptionComplete(mockTranscription);
         }
       };
       
-      reader.onerror = (event) => {
-        console.error('FileReader error:', event);
-        setIsProcessing(false);
-        toast({
-          title: "Audio Processing Error",
-          description: "Failed to process the audio file",
-          variant: "destructive"
-        });
-      };
+      processAudio();
     }
 
     return () => {

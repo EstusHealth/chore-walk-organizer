@@ -22,10 +22,31 @@ serve(async (req) => {
 
     console.log("Received audio data. MIME type:", mimeType || "audio/webm");
     
-    // Prepare form data
+    // Extract the base64 data if it's a data URL format
+    let base64Data = audio;
+    if (audio.includes(',')) {
+      base64Data = audio.split(',')[1];
+    }
+    
+    // Convert base64 to binary in a safer way
+    let binaryData;
+    try {
+      // Convert base64 to binary string
+      const binaryString = atob(base64Data);
+      // Create a Uint8Array from the binary string
+      binaryData = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        binaryData[i] = binaryString.charCodeAt(i);
+      }
+    } catch (convError) {
+      console.error('Base64 conversion error:', convError);
+      throw new Error(`Failed to convert base64 to binary: ${convError.message}`);
+    }
+    
+    const blob = new Blob([binaryData], { type: mimeType || 'audio/webm' });
+    
+    // Create form data
     const formData = new FormData();
-    const audioData = Uint8Array.from(atob(audio), c => c.charCodeAt(0));
-    const blob = new Blob([audioData], { type: mimeType || 'audio/webm' });
     formData.append('file', blob, 'audio.webm');
     formData.append('model', 'whisper-1');
 
