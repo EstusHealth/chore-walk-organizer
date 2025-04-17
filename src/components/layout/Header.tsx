@@ -1,5 +1,5 @@
 
-import { ExportTasksButton } from '@/components/ExportTasksButton';
+import ExportTasksButton from '@/components/ExportTasksButton';
 import { Room, Task } from '@/types';
 
 interface HeaderProps {
