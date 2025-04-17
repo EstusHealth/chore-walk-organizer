@@ -28,34 +28,42 @@ serve(async (req) => {
       base64Data = audio.split(',')[1];
     }
     
-    // Convert base64 to binary
-    const binaryString = atob(base64Data);
-    const binaryData = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      binaryData[i] = binaryString.charCodeAt(i);
+    console.log("Audio data length:", base64Data.length, "characters");
+
+    // Ensure we have an API key
+    const apiKey = Deno.env.get('OPENAI_API_KEY');
+    if (!apiKey) {
+      throw new Error('OpenAI API key is not configured');
     }
     
-    // Create blob and form data
-    const blob = new Blob([binaryData], { type: mimeType || 'audio/webm' });
+    // Convert base64 to binary
+    const binaryString = atob(base64Data);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    
+    console.log("Converted to binary data of length:", bytes.length, "bytes");
+    
+    // Create form data with the audio blob
     const formData = new FormData();
-    formData.append('file', blob, 'audio.webm');
+    const audioBlob = new Blob([bytes], { type: mimeType || 'audio/webm' });
+    formData.append('file', audioBlob, 'recording.webm');
     formData.append('model', 'whisper-1');
-
-    console.log("Sending to OpenAI API...");
     
-    // Make sure we're using a string for the API key - this is critical
-    const apiKey = Deno.env.get('OPENAI_API_KEY') || '';
+    console.log("Sending request to OpenAI transcription API...");
     
-    // Send to OpenAI with proper headers
+    // Send to OpenAI with minimal headers
     const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
-        // Remove any other headers that might cause issues
       },
       body: formData,
     });
 
+    console.log("OpenAI API response status:", response.status);
+    
     if (!response.ok) {
       const errorText = await response.text();
       console.error('OpenAI API error:', response.status, errorText);
@@ -63,7 +71,7 @@ serve(async (req) => {
     }
 
     const result = await response.json();
-    console.log("Transcription successful");
+    console.log("Transcription successful:", result);
 
     return new Response(
       JSON.stringify({ 

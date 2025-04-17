@@ -31,18 +31,25 @@ const RecordingTranscription = ({
       
       const processAudio = async () => {
         try {
+          console.log("Starting transcription process");
           console.log("Audio blob type:", audioBlob.type);
           console.log("Audio blob size:", audioBlob.size, "bytes");
           
           // Convert audio to base64
           const reader = new FileReader();
           const base64Data = await new Promise<string>((resolve, reject) => {
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.onerror = reject;
+            reader.onloadend = () => {
+              console.log("FileReader onloadend fired");
+              resolve(reader.result as string);
+            };
+            reader.onerror = (e) => {
+              console.error("FileReader error:", e);
+              reject(new Error("Failed to read audio file"));
+            };
             reader.readAsDataURL(audioBlob);
           });
           
-          console.log("Base64 conversion successful");
+          console.log("Base64 conversion successful, data length:", base64Data.length);
           
           // Call the transcription function
           console.log("Calling transcribe-audio function...");
@@ -55,7 +62,7 @@ const RecordingTranscription = ({
           
           if (error) {
             console.error("Supabase function error:", error);
-            throw new Error(error.message || "Error calling transcription function");
+            throw new Error(`Error calling transcription function: ${error.message || error}`);
           }
           
           console.log("Transcription response received:", data);
@@ -70,6 +77,10 @@ const RecordingTranscription = ({
             onTranscriptionComplete(data.text);
           } else {
             console.error("No text in transcription response:", data);
+            if (data?.error) {
+              throw new Error(`Transcription error: ${data.error}`);
+            }
+            
             toast({
               title: "Transcription Error",
               description: "Could not transcribe audio. Please try again.",
@@ -90,6 +101,12 @@ const RecordingTranscription = ({
             description: error instanceof Error ? error.message : "Failed to transcribe audio",
             variant: "destructive"
           });
+          
+          // Add fallback for testing in development mode
+          if (process.env.NODE_ENV === 'development') {
+            console.log("Using fallback text in development mode after error");
+            onTranscriptionComplete("This is fallback text since transcription failed with an error.");
+          }
         }
       };
       
