@@ -1,3 +1,42 @@
+
+@media (max-width: 768px) {
+  #root {
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+}
+
+/* Keep mobile-friendly scrolling */
+html, body {
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Remove extra padding on mobile */
+@media (max-width: 768px) {
+  .card {
+    padding: 1em;
+  }
+}
+
+/* Improve tap targets for mobile */
+button, 
+[role="button"],
+input[type="checkbox"],
+input[type="radio"],
+select {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+@media (max-width: 768px) {
+  .read-the-docs {
+    font-size: 0.9em;
+  }
+}
+
+/* Keep the rest of the existing styles */
 #root {
   max-width: 1280px;
   margin: 0 auto;
@@ -11,9 +50,11 @@
   will-change: filter;
   transition: filter 300ms;
 }
+
 .logo:hover {
   filter: drop-shadow(0 0 2em #646cffaa);
 }
+
 .logo.react:hover {
   filter: drop-shadow(0 0 2em #61dafbaa);
 }

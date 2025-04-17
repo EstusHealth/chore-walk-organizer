@@ -6,6 +6,7 @@ import RecordingTranscription from '@/components/RecordingTranscription';
 import RoomList from '@/components/RoomList';
 import TaskList from '@/components/TaskList';
 import { Room, Task } from '@/types';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const Index = () => {
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -13,6 +14,7 @@ const Index = () => {
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [currentAudioBlob, setCurrentAudioBlob] = useState<Blob | null>(null);
   const [transcription, setTranscription] = useState<string>('');
+  const isMobile = useIsMobile();
 
   // Load data from localStorage on component mount
   useEffect(() => {
@@ -89,21 +91,21 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm">
-        <div className="max-w-5xl mx-auto p-4">
-          <h1 className="text-2xl font-bold text-chore-700">Chore Walk Organizer</h1>
-          <p className="text-gray-600">
+      <header className="bg-white shadow-sm sticky top-0 z-10">
+        <div className="max-w-5xl mx-auto px-4 py-3">
+          <h1 className="text-xl md:text-2xl font-bold text-chore-700">Chore Walk Organizer</h1>
+          <p className="text-sm text-gray-600">
             Record as you walk, organize tasks room by room
           </p>
         </div>
       </header>
 
       <main className="max-w-5xl mx-auto p-4">
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6 flex flex-col items-center">
-          <h2 className="text-xl font-semibold mb-4 text-center">
+        <div className="bg-white rounded-lg shadow-sm p-4 md:p-6 mb-4 md:mb-6 flex flex-col items-center">
+          <h2 className="text-lg md:text-xl font-semibold mb-2 md:mb-4 text-center">
             Record Your Walk-Through
           </h2>
-          <p className="text-gray-600 mb-6 text-center max-w-md">
+          <p className="text-gray-600 mb-4 md:mb-6 text-center text-sm md:text-base max-w-md">
             Press record, walk through your home, and narrate chores or upgrades as you go.
           </p>
           
@@ -117,22 +119,42 @@ const Index = () => {
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <RoomList
-            rooms={rooms}
-            selectedRoomId={selectedRoomId}
-            onSelectRoom={setSelectedRoomId}
-            onAddRoom={handleAddRoom}
-          />
-          
-          <TaskList
-            tasks={tasks}
-            selectedRoom={selectedRoom}
-            onAddTask={handleAddTask}
-            onToggleTask={handleToggleTask}
-            onDeleteTask={handleDeleteTask}
-          />
-        </div>
+        {/* For mobile, show lists in tabs or sequential order */}
+        {isMobile ? (
+          <div className="flex flex-col gap-4">
+            <RoomList
+              rooms={rooms}
+              selectedRoomId={selectedRoomId}
+              onSelectRoom={setSelectedRoomId}
+              onAddRoom={handleAddRoom}
+            />
+            
+            <TaskList
+              tasks={tasks}
+              selectedRoom={selectedRoom}
+              onAddTask={handleAddTask}
+              onToggleTask={handleToggleTask}
+              onDeleteTask={handleDeleteTask}
+            />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <RoomList
+              rooms={rooms}
+              selectedRoomId={selectedRoomId}
+              onSelectRoom={setSelectedRoomId}
+              onAddRoom={handleAddRoom}
+            />
+            
+            <TaskList
+              tasks={tasks}
+              selectedRoom={selectedRoom}
+              onAddTask={handleAddTask}
+              onToggleTask={handleToggleTask}
+              onDeleteTask={handleDeleteTask}
+            />
+          </div>
+        )}
       </main>
     </div>
   );
