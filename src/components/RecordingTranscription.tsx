@@ -29,18 +29,29 @@ const RecordingTranscription = ({
       setAudioUrl(url);
       setIsProcessing(true);
       
-      // Convert the blob to base64
+      // Use FileReader to properly read the blob as ArrayBuffer first
       const reader = new FileReader();
-      reader.readAsDataURL(audioBlob);
+      reader.readAsArrayBuffer(audioBlob);
       
       reader.onloadend = async () => {
         try {
-          // Get base64 data from the result
-          const base64Audio = reader.result?.toString().split(',')[1];
+          console.log("Audio blob type:", audioBlob.type);
+          console.log("Audio blob size:", audioBlob.size);
           
-          if (!base64Audio) {
-            throw new Error('Failed to convert audio to base64');
+          // Convert ArrayBuffer to base64
+          const arrayBuffer = reader.result as ArrayBuffer;
+          const bytes = new Uint8Array(arrayBuffer);
+          let binary = '';
+          const chunkSize = 1024;
+          
+          // Process in smaller chunks to avoid call stack size exceeded
+          for (let i = 0; i < bytes.length; i += chunkSize) {
+            const chunk = bytes.slice(i, Math.min(i + chunkSize, bytes.length));
+            binary += String.fromCharCode.apply(null, Array.from(chunk));
           }
+          
+          const base64Audio = btoa(binary);
+          console.log("Base64 conversion successful, length:", base64Audio.length);
           
           // Call the Supabase Edge Function for transcription
           const { data, error } = await supabase.functions.invoke('transcribe-audio', {
@@ -53,7 +64,7 @@ const RecordingTranscription = ({
           
           setIsProcessing(false);
           
-          if (data.text) {
+          if (data?.text) {
             onTranscriptionComplete(data.text);
           } else {
             toast({
@@ -77,7 +88,8 @@ const RecordingTranscription = ({
         }
       };
       
-      reader.onerror = () => {
+      reader.onerror = (event) => {
+        console.error('FileReader error:', event);
         setIsProcessing(false);
         toast({
           title: "Audio Processing Error",
