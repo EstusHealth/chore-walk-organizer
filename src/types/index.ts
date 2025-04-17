@@ -9,6 +9,7 @@ export interface Task {
 export interface Room {
   id: string;
   name: string;
+  photos?: string[]; // URLs to photos stored in Supabase
 }
 
 export interface RecordingState {

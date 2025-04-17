@@ -8,6 +8,7 @@ import InstallBanner from "@/components/InstallBanner";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 
+// Create a client
 const queryClient = new QueryClient();
 
 const App = () => (

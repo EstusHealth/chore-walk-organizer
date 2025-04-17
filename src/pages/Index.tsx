@@ -5,6 +5,7 @@ import RecordButton from '@/components/RecordButton';
 import RecordingTranscription from '@/components/RecordingTranscription';
 import RoomList from '@/components/RoomList';
 import TaskList from '@/components/TaskList';
+import RoomPhotos from '@/components/RoomPhotos';
 import { Room, Task } from '@/types';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -77,6 +78,14 @@ const Index = () => {
     setTasks(tasks.filter((task) => task.id !== taskId));
   };
 
+  const handleRoomPhotosUpdated = (roomId: string, photos: string[]) => {
+    setRooms(
+      rooms.map((room) =>
+        room.id === roomId ? { ...room, photos } : room
+      )
+    );
+  };
+
   const handleRecordingComplete = (audioBlob: Blob) => {
     setCurrentAudioBlob(audioBlob);
   };
@@ -129,6 +138,15 @@ const Index = () => {
               onAddRoom={handleAddRoom}
             />
             
+            {selectedRoom && (
+              <div className="p-4 bg-white rounded-lg shadow-sm">
+                <RoomPhotos 
+                  room={selectedRoom}
+                  onPhotosUpdated={handleRoomPhotosUpdated}
+                />
+              </div>
+            )}
+            
             <TaskList
               tasks={tasks}
               selectedRoom={selectedRoom}
@@ -139,12 +157,23 @@ const Index = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <RoomList
-              rooms={rooms}
-              selectedRoomId={selectedRoomId}
-              onSelectRoom={setSelectedRoomId}
-              onAddRoom={handleAddRoom}
-            />
+            <div className="flex flex-col gap-4">
+              <RoomList
+                rooms={rooms}
+                selectedRoomId={selectedRoomId}
+                onSelectRoom={setSelectedRoomId}
+                onAddRoom={handleAddRoom}
+              />
+              
+              {selectedRoom && (
+                <div className="p-4 bg-white rounded-lg shadow-sm">
+                  <RoomPhotos 
+                    room={selectedRoom}
+                    onPhotosUpdated={handleRoomPhotosUpdated}
+                  />
+                </div>
+              )}
+            </div>
             
             <TaskList
               tasks={tasks}
