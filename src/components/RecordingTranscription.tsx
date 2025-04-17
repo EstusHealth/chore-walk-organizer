@@ -1,3 +1,4 @@
+
 // src/components/RecordingTranscription.tsx
 
 import { useState, useEffect } from 'react'
@@ -74,7 +75,7 @@ const RecordingTranscription = ({
           'Invoking transcribe-audio (POST)… payload bytes:',
           payload.length
         )
-        const { data, error, status } = await supabase.functions.invoke(
+        const { data, error } = await supabase.functions.invoke(
           'transcribe-audio',
           {
             method: 'POST',
@@ -84,12 +85,10 @@ const RecordingTranscription = ({
         )
 
         // 4) Handle errors
-        if (error || status < 200 || status >= 300) {
-          console.error('Edge Function error:', { status, error, data })
+        if (error) {
+          console.error('Edge Function error:', { error, data })
           throw new Error(
-            `Transcription function returned status ${status}${
-              error?.message ? `: ${error.message}` : ''
-            }`
+            `Transcription function error: ${error.message || 'Unknown error'}`
           )
         }
 
