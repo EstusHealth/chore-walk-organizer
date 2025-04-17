@@ -1,4 +1,3 @@
-```tsx
 import { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,121 +17,124 @@ const RecordingTranscription = ({
   const { toast } = useToast();
 
   useEffect(() => {
-    // Clean up any previous object URL
     if (audioUrl) {
       URL.revokeObjectURL(audioUrl);
     }
-
     if (!audioBlob) {
+      setAudioUrl(null);
       return;
     }
 
-    // Create a preview URL for the recorded audio
     const url = URL.createObjectURL(audioBlob);
     setAudioUrl(url);
     setIsProcessing(true);
 
     const processAudio = async () => {
+      let rawBase64: string;
       try {
-        console.log("Starting transcription process");
-        console.log("Audio blob type:", audioBlob.type);
-        console.log("Audio blob size:", audioBlob.size, "bytes");
-
-        // 1. Read the blob as a Data‑URL
+        // 1) Read as Data‑URL
         const reader = new FileReader();
-        const base64DataWithPrefix: string = await new Promise((resolve, reject) => {
-          reader.onloadend = () => {
-            console.log("FileReader onloadend fired");
-            resolve(reader.result as string);
-          };
-          reader.onerror = (e) => {
-            console.error("FileReader error:", e);
-            reject(new Error("Failed to read audio file"));
-          };
+        const dataUrl: string = await new Promise((resolve, reject) => {
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror  = () => reject(new Error('Failed to read audio'));
           reader.readAsDataURL(audioBlob);
         });
-        console.log("Base64 conversion successful, total length:", base64DataWithPrefix.length);
 
-        // 2. Strip off the "data:...;base64," prefix
-        const rawBase64 = base64DataWithPrefix.split(',')[1];
-        if (!rawBase64) {
-          throw new Error("Invalid base64 data");
-        }
+        // 2) Strip off "data:…;base64," prefix
+        const parts = dataUrl.split(',');
+        if (parts.length !== 2) throw new Error('Invalid data URL');
+        rawBase64 = parts[1];
 
-        // 3. Call your Supabase Edge Function with POST
-        console.log("Calling transcribe-audio function...");
+        // 3) Invoke your Supabase Edge Function
         const payload = JSON.stringify({
           audio: rawBase64,
           mimeType: audioBlob.type
         });
 
-        const { data, error } = await supabase.functions.invoke(
+        console.log('Invoking transcribe-audio with payload size:', payload.length);
+        const { data, error, status } = await supabase.functions.invoke(
           'transcribe-audio',
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: payload
-          }
+          { body: payload }
         );
 
-        if (error) {
-          console.error("Supabase function error:", error);
-          throw new Error(error.message || "Error calling transcription function");
+        if (error || status < 200 || status >= 300) {
+          console.error('Edge Fn error:', { status, error, data });
+          throw new Error(
+            `Edge function returned ${status}${error?.message ? ': '+error.message : ''}`
+          );
         }
 
-        console.log("Transcription response received:", data);
-        setIsProcessing(false);
+        if (!data?.text) {
+          console.error('No text in response:', data);
+          throw new Error('Transcription succeeded but returned no text');
+        }
 
-        if (data?.text) {
+        // 4) Success
+        console.log('Transcription:', data.text);
+        toast({ title: 'Transcription Complete', description: '✔︎' });
+        onTranscriptionComplete(data.text);
+      } catch (err: any) {
+        console.error('Primary transcription failed:', err);
+
+        // Optional: fall back to direct fetch so you can inspect the raw HTTP response
+        try {
+          console.log('Falling back to direct fetch() call…');
+          const resp = await fetch(
+            `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/transcribe-audio`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                apiKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+                Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
+              },
+              body: JSON.stringify({ audio: rawBase64, mimeType: audioBlob.type })
+            }
+          );
+          const text = await resp.text();
+          console.log('Fetch fallback raw response:', resp.status, resp.statusText, text);
+          if (!resp.ok) throw new Error(`Fetch error ${resp.status}: ${text}`);
+          const json = JSON.parse(text);
+          if (json.text) {
+            onTranscriptionComplete(json.text);
+            return;
+          }
+          throw new Error('Fetch fallback had no `text` field');
+        } catch (fetchErr: any) {
+          console.error('Fetch fallback also failed:', fetchErr);
           toast({
-            title: "Transcription Complete",
-            description: "Successfully transcribed your recording"
-          });
-          onTranscriptionComplete(data.text);
-        } else {
-          console.error("No text in transcription response:", data);
-          toast({
-            title: "Transcription Error",
-            description: "Could not transcribe audio. Please try again.",
-            variant: "destructive"
+            title: 'Transcription Error',
+            description: fetchErr.message || 'Unknown error',
+            variant: 'destructive'
           });
           if (process.env.NODE_ENV === 'development') {
-            console.log("Using fallback text in development mode");
-            onTranscriptionComplete("This is fallback text since transcription failed.");
+            onTranscriptionComplete(
+              '🛠️ Development fallback text — transcription failed.'
+            );
           }
         }
-      } catch (err) {
-        console.error("Transcription error:", err);
+      } finally {
         setIsProcessing(false);
-        toast({
-          title: "Transcription Error",
-          description: err instanceof Error ? err.message : "Failed to transcribe audio",
-          variant: "destructive"
-        });
-        if (process.env.NODE_ENV === 'development') {
-          console.log("Using fallback text in development mode after error");
-          onTranscriptionComplete("This is fallback text since transcription failed with an error.");
-        }
       }
     };
 
     processAudio();
 
     return () => {
-      // Clean up object URL when the component unmounts or audioBlob changes
       if (audioUrl) {
         URL.revokeObjectURL(audioUrl);
       }
     };
-  }, [audioBlob, audioUrl, onTranscriptionComplete, toast]);
+  }, [audioBlob, onTranscriptionComplete, toast]);
 
-  if (!audioBlob || !audioUrl) return null;
+  if (!audioBlob || !audioUrl) {
+    return null;
+  }
 
   return (
     <div className="mt-4 p-4 bg-white rounded-lg shadow-sm">
       <h3 className="font-medium mb-2">Recording Preview</h3>
       <audio src={audioUrl} controls className="w-full mb-3" />
-
       {isProcessing ? (
         <div className="flex items-center justify-center p-4 text-chore-600">
           <Loader2 size={20} className="animate-spin mr-2" />
@@ -148,4 +150,3 @@ const RecordingTranscription = ({
 };
 
 export default RecordingTranscription;
-```
