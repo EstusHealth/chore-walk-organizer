@@ -29,37 +29,32 @@ const RecordingTranscription = ({
       setAudioUrl(url);
       setIsProcessing(true);
       
-      // Use FileReader to properly read the blob as ArrayBuffer first
+      // Use FileReader to properly read the blob
       const reader = new FileReader();
-      reader.readAsArrayBuffer(audioBlob);
+      reader.readAsDataURL(audioBlob); // Changed to readAsDataURL
       
       reader.onloadend = async () => {
         try {
           console.log("Audio blob type:", audioBlob.type);
           console.log("Audio blob size:", audioBlob.size);
           
-          // Convert ArrayBuffer to base64
-          const arrayBuffer = reader.result as ArrayBuffer;
-          const bytes = new Uint8Array(arrayBuffer);
-          let binary = '';
-          const chunkSize = 1024;
+          // Get base64 data from the result - this extracts just the base64 part
+          const base64Audio = reader.result?.toString().split(',')[1];
           
-          // Process in smaller chunks to avoid call stack size exceeded
-          for (let i = 0; i < bytes.length; i += chunkSize) {
-            const chunk = bytes.slice(i, Math.min(i + chunkSize, bytes.length));
-            binary += String.fromCharCode.apply(null, Array.from(chunk));
+          if (!base64Audio) {
+            throw new Error('Failed to convert audio to base64');
           }
           
-          const base64Audio = btoa(binary);
           console.log("Base64 conversion successful, length:", base64Audio.length);
           
           // Call the Supabase Edge Function for transcription
           const { data, error } = await supabase.functions.invoke('transcribe-audio', {
-            body: { audio: base64Audio }
+            body: { audio: base64Audio, mimeType: audioBlob.type }
           });
           
           if (error) {
-            throw new Error(error.message);
+            console.error("Supabase function error:", error);
+            throw new Error(error.message || "Error calling transcription function");
           }
           
           setIsProcessing(false);
