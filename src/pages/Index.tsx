@@ -6,8 +6,12 @@ import RecordingTranscription from '@/components/RecordingTranscription';
 import RoomList from '@/components/RoomList';
 import TaskList from '@/components/TaskList';
 import RoomPhotos from '@/components/RoomPhotos';
+import AllTasksView from '@/components/AllTasksView';
+import ExportTasksButton from '@/components/ExportTasksButton';
 import { Room, Task } from '@/types';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from '@/components/ui/sonner';
 
 const Index = () => {
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -15,6 +19,7 @@ const Index = () => {
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [currentAudioBlob, setCurrentAudioBlob] = useState<Blob | null>(null);
   const [transcription, setTranscription] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<string>("by-room");
   const isMobile = useIsMobile();
 
   // Load data from localStorage on component mount
@@ -56,6 +61,21 @@ const Index = () => {
     setSelectedRoomId(newRoom.id);
   };
 
+  const handleRemoveRoom = (roomId: string) => {
+    // Remove the room
+    setRooms(rooms.filter(room => room.id !== roomId));
+    
+    // Remove all tasks associated with this room
+    const updatedTasks = tasks.filter(task => task.roomId !== roomId);
+    setTasks(updatedTasks);
+    
+    // If the selected room is being removed, select another room if available
+    if (selectedRoomId === roomId) {
+      const remainingRooms = rooms.filter(room => room.id !== roomId);
+      setSelectedRoomId(remainingRooms.length > 0 ? remainingRooms[0].id : null);
+    }
+  };
+
   const handleAddTask = (text: string, roomId: string) => {
     const newTask = {
       id: nanoid(),
@@ -64,6 +84,7 @@ const Index = () => {
       roomId
     };
     setTasks([...tasks, newTask]);
+    toast.success('Task added');
   };
 
   const handleToggleTask = (taskId: string) => {
@@ -76,6 +97,7 @@ const Index = () => {
 
   const handleDeleteTask = (taskId: string) => {
     setTasks(tasks.filter((task) => task.id !== taskId));
+    toast.success('Task removed');
   };
 
   const handleRoomPhotosUpdated = (roomId: string, photos: string[]) => {
@@ -103,9 +125,12 @@ const Index = () => {
       <header className="bg-white shadow-sm sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 py-3">
           <h1 className="text-xl md:text-2xl font-bold text-chore-700">Chore Walk Organizer</h1>
-          <p className="text-sm text-gray-600">
-            Record as you walk, organize tasks room by room
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-600">
+              Record as you walk, organize tasks room by room
+            </p>
+            <ExportTasksButton tasks={tasks} rooms={rooms} />
+          </div>
         </div>
       </header>
 
@@ -128,62 +153,84 @@ const Index = () => {
           )}
         </div>
 
-        {/* For mobile, show lists in tabs or sequential order */}
-        {isMobile ? (
-          <div className="flex flex-col gap-4">
-            <RoomList
-              rooms={rooms}
-              selectedRoomId={selectedRoomId}
-              onSelectRoom={setSelectedRoomId}
-              onAddRoom={handleAddRoom}
-            />
+        <div className="mb-4">
+          <Tabs defaultValue="by-room" value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="by-room">By Room</TabsTrigger>
+              <TabsTrigger value="all-tasks">All Tasks</TabsTrigger>
+            </TabsList>
             
-            {selectedRoom && (
-              <div className="p-4 bg-white rounded-lg shadow-sm">
-                <RoomPhotos 
-                  room={selectedRoom}
-                  onPhotosUpdated={handleRoomPhotosUpdated}
-                />
-              </div>
-            )}
-            
-            <TaskList
-              tasks={tasks}
-              selectedRoom={selectedRoom}
-              onAddTask={handleAddTask}
-              onToggleTask={handleToggleTask}
-              onDeleteTask={handleDeleteTask}
-            />
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="flex flex-col gap-4">
-              <RoomList
-                rooms={rooms}
-                selectedRoomId={selectedRoomId}
-                onSelectRoom={setSelectedRoomId}
-                onAddRoom={handleAddRoom}
-              />
-              
-              {selectedRoom && (
-                <div className="p-4 bg-white rounded-lg shadow-sm">
-                  <RoomPhotos 
-                    room={selectedRoom}
-                    onPhotosUpdated={handleRoomPhotosUpdated}
+            <TabsContent value="by-room">
+              {/* For mobile, show lists in tabs or sequential order */}
+              {isMobile ? (
+                <div className="flex flex-col gap-4">
+                  <RoomList
+                    rooms={rooms}
+                    selectedRoomId={selectedRoomId}
+                    onSelectRoom={setSelectedRoomId}
+                    onAddRoom={handleAddRoom}
+                    onRemoveRoom={handleRemoveRoom}
+                  />
+                  
+                  {selectedRoom && (
+                    <div className="p-4 bg-white rounded-lg shadow-sm">
+                      <RoomPhotos 
+                        room={selectedRoom}
+                        onPhotosUpdated={handleRoomPhotosUpdated}
+                      />
+                    </div>
+                  )}
+                  
+                  <TaskList
+                    tasks={tasks}
+                    selectedRoom={selectedRoom}
+                    onAddTask={handleAddTask}
+                    onToggleTask={handleToggleTask}
+                    onDeleteTask={handleDeleteTask}
+                  />
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="flex flex-col gap-4">
+                    <RoomList
+                      rooms={rooms}
+                      selectedRoomId={selectedRoomId}
+                      onSelectRoom={setSelectedRoomId}
+                      onAddRoom={handleAddRoom}
+                      onRemoveRoom={handleRemoveRoom}
+                    />
+                    
+                    {selectedRoom && (
+                      <div className="p-4 bg-white rounded-lg shadow-sm">
+                        <RoomPhotos 
+                          room={selectedRoom}
+                          onPhotosUpdated={handleRoomPhotosUpdated}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  
+                  <TaskList
+                    tasks={tasks}
+                    selectedRoom={selectedRoom}
+                    onAddTask={handleAddTask}
+                    onToggleTask={handleToggleTask}
+                    onDeleteTask={handleDeleteTask}
                   />
                 </div>
               )}
-            </div>
+            </TabsContent>
             
-            <TaskList
-              tasks={tasks}
-              selectedRoom={selectedRoom}
-              onAddTask={handleAddTask}
-              onToggleTask={handleToggleTask}
-              onDeleteTask={handleDeleteTask}
-            />
-          </div>
-        )}
+            <TabsContent value="all-tasks">
+              <AllTasksView 
+                tasks={tasks}
+                rooms={rooms}
+                onToggleTask={handleToggleTask}
+                onDeleteTask={handleDeleteTask}
+              />
+            </TabsContent>
+          </Tabs>
+        </div>
       </main>
     </div>
   );

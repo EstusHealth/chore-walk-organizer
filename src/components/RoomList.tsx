@@ -4,19 +4,22 @@ import { Room } from '@/types';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Home } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import RemoveRoomButton from './RemoveRoomButton';
 
 interface RoomListProps {
   rooms: Room[];
   selectedRoomId: string | null;
   onSelectRoom: (roomId: string) => void;
   onAddRoom: (roomName: string) => void;
+  onRemoveRoom: (roomId: string) => void;
 }
 
 const RoomList = ({ 
   rooms, 
   selectedRoomId, 
   onSelectRoom, 
-  onAddRoom 
+  onAddRoom,
+  onRemoveRoom
 }: RoomListProps) => {
   const [newRoomName, setNewRoomName] = useState('');
   const [isAdding, setIsAdding] = useState(false);
@@ -66,17 +69,23 @@ const RoomList = ({
           <p className="text-sm text-gray-500 italic">No rooms added yet</p>
         ) : (
           rooms.map((room) => (
-            <button
-              key={room.id}
-              onClick={() => onSelectRoom(room.id)}
-              className={`w-full text-left px-3 py-2 rounded text-sm font-medium transition-colors ${
-                selectedRoomId === room.id
-                  ? 'bg-chore-100 text-chore-700'
-                  : 'hover:bg-gray-100 text-gray-700'
-              }`}
-            >
-              {room.name}
-            </button>
+            <div key={room.id} className="flex items-center justify-between">
+              <button
+                onClick={() => onSelectRoom(room.id)}
+                className={`flex-grow text-left px-3 py-2 rounded text-sm font-medium transition-colors ${
+                  selectedRoomId === room.id
+                    ? 'bg-chore-100 text-chore-700'
+                    : 'hover:bg-gray-100 text-gray-700'
+                }`}
+              >
+                {room.name}
+              </button>
+              <RemoveRoomButton 
+                roomId={room.id} 
+                roomName={room.name} 
+                onRemove={onRemoveRoom}
+              />
+            </div>
           ))
         )}
       </div>
