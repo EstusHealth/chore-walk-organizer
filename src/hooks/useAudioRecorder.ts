@@ -44,7 +44,8 @@ export const useAudioRecorder = ({ maxRecordingTime, onRecordingComplete }: UseA
         .from('audio_transcriptions')
         .insert({
           file_path: uploadData.path,
-          status: 'pending'
+          status: 'pending',
+          user_id: (await supabase.auth.getUser()).data.user?.id
         });
 
       if (transcriptionError) {
