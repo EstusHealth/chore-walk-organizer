@@ -102,7 +102,7 @@ const RecordingTranscription = ({
         console.log('Transcription result:', data.text)
         toast({
           title: 'Transcription Complete',
-          description: 'Your recording was transcribed successfully.',
+          description: 'Your recording was transcribed successfully using Google Gemini.',
         })
         onTranscriptionComplete(data.text)
       } catch (err: any) {
@@ -147,7 +147,7 @@ const RecordingTranscription = ({
       {isProcessing ? (
         <div className="flex items-center justify-center p-4 text-chore-600">
           <Loader2 size={20} className="animate-spin mr-2" />
-          <span>Transcribing your recording...</span>
+          <span>Transcribing your recording with Google Gemini...</span>
         </div>
       ) : (
         <p className="text-sm text-gray-600">
