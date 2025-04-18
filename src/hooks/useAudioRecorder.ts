@@ -1,6 +1,7 @@
-
 import { useState, useRef, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { formatTime } from '@/utils/timeFormat';
 
 interface UseAudioRecorderProps {
   maxRecordingTime: number;
@@ -18,6 +19,38 @@ export const useAudioRecorder = ({ maxRecordingTime, onRecordingComplete }: UseA
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<number | null>(null);
   const { toast } = useToast();
+
+  const uploadAudioBlob = async (audioBlob: Blob) => {
+    try {
+      const fileName = `recording_${new Date().toISOString()}.webm`;
+      const { data, error } = await supabase.storage
+        .from('audio-recordings')
+        .upload(fileName, audioBlob, {
+          contentType: audioBlob.type,
+          upsert: false
+        });
+
+      if (error) {
+        console.error('Supabase upload error:', error);
+        toast({
+          title: "Upload Error",
+          description: "Failed to upload audio recording.",
+          variant: "destructive"
+        });
+        return null;
+      }
+
+      return data.path;
+    } catch (error) {
+      console.error('Audio upload error:', error);
+      toast({
+        title: "Upload Error",
+        description: "An unexpected error occurred during upload.",
+        variant: "destructive"
+      });
+      return null;
+    }
+  };
 
   const stopRecording = () => {
     console.log('Stopping recording...');
@@ -86,7 +119,7 @@ export const useAudioRecorder = ({ maxRecordingTime, onRecordingComplete }: UseA
         }
       };
       
-      mediaRecorder.onstop = () => {
+      mediaRecorder.onstop = async () => {
         console.log('MediaRecorder stopped, processing audio...');
         
         if (audioChunksRef.current.length === 0) {
@@ -112,6 +145,8 @@ export const useAudioRecorder = ({ maxRecordingTime, onRecordingComplete }: UseA
           return;
         }
         
+        const uploadedFilePath = await uploadAudioBlob(audioBlob);
+        
         onRecordingComplete(audioBlob);
         
         if (streamRef.current) {
@@ -121,7 +156,9 @@ export const useAudioRecorder = ({ maxRecordingTime, onRecordingComplete }: UseA
         
         toast({
           title: "Recording Complete",
-          description: `Recording saved (${formatTime(recordingTime)})`,
+          description: `Recording saved (${formatTime(recordingTime)})${
+            uploadedFilePath ? ' and uploaded to cloud' : ''
+          }`,
         });
         
         setIsLoading(false);
@@ -214,4 +251,3 @@ export const useAudioRecorder = ({ maxRecordingTime, onRecordingComplete }: UseA
     stopRecording
   };
 };
-
