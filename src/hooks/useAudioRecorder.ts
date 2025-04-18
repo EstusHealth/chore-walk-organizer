@@ -40,22 +40,38 @@ export const useAudioRecorder = ({ maxRecordingTime, onRecordingComplete }: UseA
         return null;
       }
 
-      const { error: transcriptionError } = await supabase
+      const { data: transcriptionData, error: transcriptionError } = await supabase
         .from('audio_transcriptions')
         .insert({
           file_path: uploadData.path,
           status: 'pending',
           user_id: (await supabase.auth.getUser()).data.user?.id
-        });
+        })
+        .select('id')
+        .single();
 
       if (transcriptionError) {
         console.error('Error creating transcription record:', transcriptionError);
         return null;
       }
 
+      const reader = new FileReader();
+      const base64Data: string = await new Promise((resolve, reject) => {
+        reader.onloadend = () => {
+          const base64 = reader.result as string;
+          const base64Only = base64.split(',')[1];
+          resolve(base64Only);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(audioBlob);
+      });
+
       const { error: processError } = await supabase.functions
-        .invoke('process-audio', {
-          body: { filePath: uploadData.path }
+        .invoke('process-audio-transcript', {
+          body: { 
+            audioBase64: base64Data,
+            fileId: transcriptionData.id
+          }
         });
 
       if (processError) {

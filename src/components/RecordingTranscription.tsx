@@ -73,16 +73,16 @@ const RecordingTranscription = ({
         const rawBase64 = parts[1]
         console.log(`Audio base64 data length: ${rawBase64.length} characters`)
 
-        // 3) Invoke Supabase Edge Function
-        console.log('Invoking transcribe-audio function...')
+        // 3) Invoke new Supabase Edge Function
+        console.log('Invoking process-audio-transcript function...')
         const { data, error } = await supabase.functions.invoke(
-          'transcribe-audio',
+          'process-audio-transcript',
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              audio: rawBase64,
-              mimeType: audioBlob.type,
+              audioBase64: rawBase64,
+              // No fileId here as we're processing directly without storage
             }),
           }
         )
@@ -102,18 +102,23 @@ const RecordingTranscription = ({
         }
 
         // 6) Ensure we have text returned
-        if (!data?.text) {
-          console.error('No text field in transcription response:', data)
+        if (!data?.transcribedText) {
+          console.error('No transcribedText field in response:', data)
           throw new Error('Transcription succeeded but returned no text')
         }
 
         // 7) Success!
-        console.log('Transcription result:', data.text)
+        console.log('Transcription result:', data.transcribedText)
+        if (data.tasks) {
+          console.log('Extracted tasks:', data.tasks)
+        }
+        
         toast({
           title: 'Transcription Complete',
           description: 'Your recording was transcribed successfully using Google Speech-to-Text.',
         })
-        onTranscriptionComplete(data.text)
+        
+        onTranscriptionComplete(data.transcribedText)
       } catch (err: any) {
         console.error('Transcription error:', err)
         const errorMsg = err.message || 'Failed to transcribe audio.'
