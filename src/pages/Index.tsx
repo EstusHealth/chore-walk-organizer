@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { nanoid } from 'nanoid';
 import { Room, Task } from '@/types';
@@ -11,7 +10,6 @@ const Index = () => {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
 
-  // Load data from localStorage on component mount
   useEffect(() => {
     const savedRooms = localStorage.getItem('chore-walk-rooms');
     const savedTasks = localStorage.getItem('chore-walk-tasks');
@@ -19,7 +17,6 @@ const Index = () => {
     if (savedRooms) {
       setRooms(JSON.parse(savedRooms));
     } else {
-      // Add default rooms if none exist
       const defaultRooms = [
         { id: nanoid(), name: 'Living Room' },
         { id: nanoid(), name: 'Kitchen' },
@@ -35,7 +32,6 @@ const Index = () => {
     }
   }, []);
 
-  // Save data to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem('chore-walk-rooms', JSON.stringify(rooms));
   }, [rooms]);
@@ -59,7 +55,9 @@ const Index = () => {
       id: nanoid(),
       text,
       completed: false,
-      roomId
+      roomId,
+      isUrgent: false,
+      isImportant: false
     };
     setTasks([...tasks, newTask]);
     toast.success('Task added');
@@ -86,6 +84,14 @@ const Index = () => {
     );
   };
 
+  const handleUpdateTaskPriority = (taskId: string, isUrgent: boolean, isImportant: boolean) => {
+    setTasks(
+      tasks.map((task) =>
+        task.id === taskId ? { ...task, isUrgent, isImportant } : task
+      )
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header tasks={tasks} rooms={rooms} />
@@ -104,6 +110,7 @@ const Index = () => {
           onAddRoom={handleAddRoom}
           onRemoveRoom={handleRemoveRoom}
           onRoomPhotosUpdated={handleRoomPhotosUpdated}
+          onUpdateTaskPriority={handleUpdateTaskPriority}
         />
       </main>
     </div>

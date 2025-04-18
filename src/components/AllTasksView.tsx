@@ -11,8 +11,11 @@ import {
 } from "@/components/ui/table";
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
-import { Trash2, ListFilter } from 'lucide-react';
+import { Trash2, ListFilter, LayoutGrid } from 'lucide-react';
 import { useState } from 'react';
+import EisenhowerMatrix from './EisenhowerMatrix';
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 
 interface AllTasksViewProps {
   tasks: Task[];
@@ -23,22 +26,43 @@ interface AllTasksViewProps {
 
 const AllTasksView = ({ tasks, rooms, onToggleTask, onDeleteTask }: AllTasksViewProps) => {
   const [showCompleted, setShowCompleted] = useState(true);
+  const [viewMode, setViewMode] = useState<'list' | 'matrix'>('list');
   
-  // Create a room map for easier lookup
   const roomMap = new Map(rooms.map(room => [room.id, room.name]));
   
-  // Filter tasks based on showCompleted state
   const filteredTasks = showCompleted 
     ? tasks 
     : tasks.filter(task => !task.completed);
 
+  const handleUpdatePriority = (taskId: string, isUrgent: boolean, isImportant: boolean) => {
+    // This is a placeholder - you'll need to implement this in Index.tsx and pass it down
+    console.log('Update priority:', { taskId, isUrgent, isImportant });
+  };
+
   return (
     <div className="p-4 bg-white rounded-lg shadow-sm">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-          <ListFilter size={18} />
-          All Tasks
-        </h2>
+        <div className="flex items-center gap-4">
+          <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+            <ListFilter size={18} />
+            All Tasks
+          </h2>
+          <RadioGroup
+            defaultValue="list"
+            value={viewMode}
+            onValueChange={(value) => setViewMode(value as 'list' | 'matrix')}
+            className="flex items-center space-x-2"
+          >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="list" id="list" />
+              <Label htmlFor="list">List</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="matrix" id="matrix" />
+              <Label htmlFor="matrix">Matrix</Label>
+            </div>
+          </RadioGroup>
+        </div>
         <Button
           variant="outline"
           size="sm"
@@ -52,6 +76,13 @@ const AllTasksView = ({ tasks, rooms, onToggleTask, onDeleteTask }: AllTasksView
         <p className="text-sm text-gray-500 italic">No tasks created yet</p>
       ) : filteredTasks.length === 0 ? (
         <p className="text-sm text-gray-500 italic">No incomplete tasks</p>
+      ) : viewMode === 'matrix' ? (
+        <EisenhowerMatrix
+          tasks={filteredTasks}
+          onToggleTask={onToggleTask}
+          onDeleteTask={onDeleteTask}
+          onUpdatePriority={handleUpdatePriority}
+        />
       ) : (
         <Table>
           <TableCaption>Tasks across all rooms</TableCaption>

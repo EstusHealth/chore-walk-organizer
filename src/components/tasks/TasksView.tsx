@@ -16,6 +16,7 @@ interface TasksViewProps {
   onAddRoom: (name: string) => void;
   onRemoveRoom: (roomId: string) => void;
   onRoomPhotosUpdated: (roomId: string, photos: string[]) => void;
+  onUpdateTaskPriority: (taskId: string, isUrgent: boolean, isImportant: boolean) => void;
 }
 
 const TasksView = ({
@@ -27,6 +28,7 @@ const TasksView = ({
   onAddRoom,
   onRemoveRoom,
   onRoomPhotosUpdated,
+  onUpdateTaskPriority,
 }: TasksViewProps) => {
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>("by-room");

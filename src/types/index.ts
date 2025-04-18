@@ -1,9 +1,10 @@
-
 export interface Task {
   id: string;
   text: string;
   completed: boolean;
   roomId: string;
+  isUrgent?: boolean;
+  isImportant?: boolean;
 }
 
 export interface Room {
