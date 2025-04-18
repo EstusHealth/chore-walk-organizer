@@ -23,15 +23,15 @@ export const useAudioRecorder = ({ maxRecordingTime, onRecordingComplete }: UseA
   const uploadAudioBlob = async (audioBlob: Blob) => {
     try {
       const fileName = `recording_${new Date().toISOString()}.webm`;
-      const { data, error } = await supabase.storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('audio-recordings')
         .upload(fileName, audioBlob, {
           contentType: audioBlob.type,
           upsert: false
         });
 
-      if (error) {
-        console.error('Supabase upload error:', error);
+      if (uploadError) {
+        console.error('Supabase upload error:', uploadError);
         toast({
           title: "Upload Error",
           description: "Failed to upload audio recording.",
@@ -40,7 +40,28 @@ export const useAudioRecorder = ({ maxRecordingTime, onRecordingComplete }: UseA
         return null;
       }
 
-      return data.path;
+      const { error: transcriptionError } = await supabase
+        .from('audio_transcriptions')
+        .insert({
+          file_path: uploadData.path,
+          status: 'pending'
+        });
+
+      if (transcriptionError) {
+        console.error('Error creating transcription record:', transcriptionError);
+        return null;
+      }
+
+      const { error: processError } = await supabase.functions
+        .invoke('process-audio', {
+          body: { filePath: uploadData.path }
+        });
+
+      if (processError) {
+        console.error('Error triggering transcription:', processError);
+      }
+
+      return uploadData.path;
     } catch (error) {
       console.error('Audio upload error:', error);
       toast({
