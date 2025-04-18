@@ -82,6 +82,7 @@ const TasksView = ({
             rooms={rooms}
             onToggleTask={onToggleTask}
             onDeleteTask={onDeleteTask}
+            onUpdateTaskPriority={onUpdateTaskPriority}
           />
         </TabsContent>
       </Tabs>

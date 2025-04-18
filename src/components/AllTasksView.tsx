@@ -11,20 +11,28 @@ import {
 } from "@/components/ui/table";
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
-import { Trash2, ListFilter, LayoutGrid } from 'lucide-react';
+import { Trash2, ListFilter } from 'lucide-react';
 import { useState } from 'react';
 import EisenhowerMatrix from './EisenhowerMatrix';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import PrioritySelector from './PrioritySelector';
 
 interface AllTasksViewProps {
   tasks: Task[];
   rooms: Room[];
   onToggleTask: (taskId: string) => void;
   onDeleteTask: (taskId: string) => void;
+  onUpdateTaskPriority: (taskId: string, isUrgent: boolean, isImportant: boolean) => void;
 }
 
-const AllTasksView = ({ tasks, rooms, onToggleTask, onDeleteTask }: AllTasksViewProps) => {
+const AllTasksView = ({ 
+  tasks, 
+  rooms, 
+  onToggleTask, 
+  onDeleteTask,
+  onUpdateTaskPriority 
+}: AllTasksViewProps) => {
   const [showCompleted, setShowCompleted] = useState(true);
   const [viewMode, setViewMode] = useState<'list' | 'matrix'>('list');
   
@@ -33,11 +41,6 @@ const AllTasksView = ({ tasks, rooms, onToggleTask, onDeleteTask }: AllTasksView
   const filteredTasks = showCompleted 
     ? tasks 
     : tasks.filter(task => !task.completed);
-
-  const handleUpdatePriority = (taskId: string, isUrgent: boolean, isImportant: boolean) => {
-    // This is a placeholder - you'll need to implement this in Index.tsx and pass it down
-    console.log('Update priority:', { taskId, isUrgent, isImportant });
-  };
 
   return (
     <div className="p-4 bg-white rounded-lg shadow-sm">
@@ -81,7 +84,7 @@ const AllTasksView = ({ tasks, rooms, onToggleTask, onDeleteTask }: AllTasksView
           tasks={filteredTasks}
           onToggleTask={onToggleTask}
           onDeleteTask={onDeleteTask}
-          onUpdatePriority={handleUpdatePriority}
+          onUpdatePriority={onUpdateTaskPriority}
         />
       ) : (
         <Table>
@@ -91,6 +94,7 @@ const AllTasksView = ({ tasks, rooms, onToggleTask, onDeleteTask }: AllTasksView
               <TableHead className="w-12">Done</TableHead>
               <TableHead>Task</TableHead>
               <TableHead>Room</TableHead>
+              <TableHead>Priority</TableHead>
               <TableHead className="w-12">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -111,6 +115,15 @@ const AllTasksView = ({ tasks, rooms, onToggleTask, onDeleteTask }: AllTasksView
                   {task.text}
                 </TableCell>
                 <TableCell>{roomMap.get(task.roomId) || 'Unknown Room'}</TableCell>
+                <TableCell>
+                  <PrioritySelector
+                    isUrgent={task.isUrgent || false}
+                    isImportant={task.isImportant || false}
+                    onUpdatePriority={(isUrgent, isImportant) => 
+                      onUpdateTaskPriority(task.id, isUrgent, isImportant)
+                    }
+                  />
+                </TableCell>
                 <TableCell>
                   <Button
                     variant="ghost"
