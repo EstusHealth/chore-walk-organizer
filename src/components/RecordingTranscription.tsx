@@ -1,6 +1,4 @@
 
-// src/components/RecordingTranscription.tsx
-
 import { useState, useEffect } from 'react'
 import { Loader2 } from 'lucide-react'
 import { supabase } from '@/integrations/supabase/client'
@@ -11,15 +9,13 @@ interface RecordingTranscriptionProps {
   onTranscriptionComplete: (text: string) => void
 }
 
-// Minimum blob size (bytes) before we consider the recording "finished"
-const MIN_BLOB_SIZE = 1024
-
 const RecordingTranscription = ({
   audioBlob,
   onTranscriptionComplete,
 }: RecordingTranscriptionProps) => {
   const [isProcessing, setIsProcessing] = useState(false)
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
+  const [transcriptionError, setTranscriptionError] = useState<string | null>(null)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -34,53 +30,58 @@ const RecordingTranscription = ({
       return
     }
 
-    // If the blob is very small, assume recording is still in progress
-    if (audioBlob.size < MIN_BLOB_SIZE) {
-      console.log(
-        `Blob too small (${audioBlob.size} bytes)—waiting for full recording before transcribing.`
-      )
+    // Validate blob before processing
+    if (audioBlob.size < 1000) {
+      console.log(`Audio blob too small (${audioBlob.size} bytes). Not processing.`)
+      toast({
+        title: "Recording Error",
+        description: "The recording is too short or empty. Please try again.",
+        variant: "destructive"
+      })
       return
     }
 
-    // We have a complete blob: generate preview URL and start transcription
+    console.log(`Processing audio blob: ${audioBlob.size} bytes, type: ${audioBlob.type}`)
+    
+    // We have a valid blob: generate preview URL and start transcription
     const url = URL.createObjectURL(audioBlob)
     setAudioUrl(url)
     setIsProcessing(true)
+    setTranscriptionError(null)
 
     const processAudio = async () => {
       try {
-        // 1) Read the blob as a Data‑URL
+        console.log('Starting transcription process...')
+        
+        // 1) Read the blob as a Data URL
         const reader = new FileReader()
         const dataUrl: string = await new Promise((resolve, reject) => {
           reader.onloadend = () => resolve(reader.result as string)
-          reader.onerror = () =>
+          reader.onerror = (e) => {
+            console.error('FileReader error:', e)
             reject(new Error('Failed to read audio file for transcription'))
+          }
           reader.readAsDataURL(audioBlob)
         })
 
         // 2) Strip off "data:…;base64," prefix
         const parts = dataUrl.split(',')
         if (parts.length !== 2) {
-          throw new Error('Invalid Data‑URL from audio blob')
+          throw new Error('Invalid Data URL format from audio blob')
         }
         const rawBase64 = parts[1]
 
-        // 3) Invoke your Supabase Edge Function with POST
-        const payload = JSON.stringify({
-          audio: rawBase64,
-          mimeType: audioBlob.type,
-        })
-
-        console.log(
-          'Invoking transcribe-audio (POST)… payload bytes:',
-          payload.length
-        )
+        // 3) Invoke Supabase Edge Function
+        console.log('Invoking transcribe-audio function...')
         const { data, error } = await supabase.functions.invoke(
           'transcribe-audio',
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: payload,
+            body: JSON.stringify({
+              audio: rawBase64,
+              mimeType: audioBlob.type,
+            }),
           }
         )
 
@@ -95,7 +96,11 @@ const RecordingTranscription = ({
         // 5) Ensure we have text returned
         if (!data?.text) {
           console.error('No text field in transcription response:', data)
-          throw new Error('Transcription succeeded but returned no text')
+          if (data?.error) {
+            throw new Error(`Transcription error: ${data.error}`)
+          } else {
+            throw new Error('Transcription succeeded but returned no text')
+          }
         }
 
         // 6) Success!
@@ -107,9 +112,12 @@ const RecordingTranscription = ({
         onTranscriptionComplete(data.text)
       } catch (err: any) {
         console.error('Transcription error:', err)
+        const errorMsg = err.message || 'Failed to transcribe audio.'
+        setTranscriptionError(errorMsg)
+        
         toast({
           title: 'Transcription Error',
-          description: err.message || 'Failed to transcribe audio.',
+          description: errorMsg,
           variant: 'destructive',
         })
 
@@ -148,6 +156,11 @@ const RecordingTranscription = ({
         <div className="flex items-center justify-center p-4 text-chore-600">
           <Loader2 size={20} className="animate-spin mr-2" />
           <span>Transcribing your recording with Google Gemini...</span>
+        </div>
+      ) : transcriptionError ? (
+        <div className="p-2 text-red-500 text-sm border border-red-200 rounded bg-red-50">
+          <p>Error: {transcriptionError}</p>
+          <p className="mt-1">Please try recording again with clear speech.</p>
         </div>
       ) : (
         <p className="text-sm text-gray-600">
