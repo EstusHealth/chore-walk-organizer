@@ -30,6 +30,7 @@ const RecordButton = ({ onRecordingComplete }: RecordButtonProps) => {
   const startRecording = async () => {
     try {
       setIsLoading(true);
+      audioChunksRef.current = []; // Clear any previous audio chunks
       
       console.log('Requesting microphone access...');
       
@@ -51,32 +52,36 @@ const RecordButton = ({ onRecordingComplete }: RecordButtonProps) => {
       
       streamRef.current = stream;
       
-      // Create and configure the MediaRecorder
+      // Create and configure the MediaRecorder with high quality settings
       const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg'
+        mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg',
+        audioBitsPerSecond: 128000
       });
       
       mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
       
       // Set up data handling
       mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
+        if (event.data && event.data.size > 0) {
+          console.log(`Adding chunk: ${event.data.size} bytes`);
           audioChunksRef.current.push(event.data);
-          console.log(`Recorded chunk: ${event.data.size} bytes`);
+        } else {
+          console.warn('Received empty data chunk');
         }
       };
       
       // Set up stop handling
       mediaRecorder.onstop = () => {
         console.log('MediaRecorder stopped, processing audio...');
+        console.log(`Total chunks: ${audioChunksRef.current.length}`);
         
-        if (audioChunksRef.current.length === 0 || !audioChunksRef.current.some(chunk => chunk.size > 0)) {
+        if (audioChunksRef.current.length === 0) {
           toast({
             title: "Recording Error",
             description: "No audio data was captured. Please try again.",
             variant: "destructive"
           });
+          setIsLoading(false);
           return;
         }
         
@@ -91,13 +96,19 @@ const RecordButton = ({ onRecordingComplete }: RecordButtonProps) => {
             description: "Audio recording too short or empty. Please try again.",
             variant: "destructive"
           });
+          setIsLoading(false);
           return;
         }
         
         onRecordingComplete(audioBlob);
         
+        // Clean up stream tracks
         if (streamRef.current) {
-          streamRef.current.getTracks().forEach(track => track.stop());
+          streamRef.current.getTracks().forEach(track => {
+            track.stop();
+            console.log('Audio track stopped');
+          });
+          streamRef.current = null;
         }
         
         // Reset timer
@@ -110,6 +121,8 @@ const RecordButton = ({ onRecordingComplete }: RecordButtonProps) => {
           title: "Recording Complete",
           description: `Recording saved (${formatTime(recordingTime)})`,
         });
+        
+        setIsLoading(false);
       };
       
       // Handle errors
@@ -121,10 +134,11 @@ const RecordButton = ({ onRecordingComplete }: RecordButtonProps) => {
           variant: "destructive"
         });
         stopRecording();
+        setIsLoading(false);
       };
       
-      // Start the recording
-      mediaRecorder.start(1000); // Capture in 1-second chunks
+      // Start the recording with smaller chunks for more accurate timing
+      mediaRecorder.start(500); // Capture in 500ms chunks for more frequent updates
       setIsRecording(true);
       setIsPulsing(true);
       setPermissionDenied(false);
@@ -139,6 +153,7 @@ const RecordButton = ({ onRecordingComplete }: RecordButtonProps) => {
           
           // Auto-stop recording at max time
           if (newTime >= maxRecordingTime) {
+            console.log('Maximum recording time reached, stopping...');
             stopRecording();
             return maxRecordingTime;
           }
@@ -147,16 +162,11 @@ const RecordButton = ({ onRecordingComplete }: RecordButtonProps) => {
         });
       }, 1000);
       
-      // Auto-stop recording after max recording time
-      setTimeout(() => {
-        if (isRecording) {
-          stopRecording();
-        }
-      }, maxRecordingTime * 1000);
-      
+      setIsLoading(false);
     } catch (error: any) {
       console.error('Error accessing microphone:', error);
       setPermissionDenied(true);
+      setIsLoading(false);
       
       let errorMessage = "Please enable microphone access to record audio.";
       
@@ -174,16 +184,22 @@ const RecordButton = ({ onRecordingComplete }: RecordButtonProps) => {
         description: errorMessage,
         variant: "destructive"
       });
-    } finally {
-      setIsLoading(false);
     }
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording && mediaRecorderRef.current.state !== 'inactive') {
-      console.log('Stopping MediaRecorder...');
+    console.log('Stopping recording...');
+    
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       try {
+        // Request one final data chunk before stopping
+        if (mediaRecorderRef.current.state === 'recording') {
+          mediaRecorderRef.current.requestData();
+        }
+        
         mediaRecorderRef.current.stop();
+        console.log('MediaRecorder stopped');
+        
         setIsRecording(false);
         setIsPulsing(false);
         
@@ -193,25 +209,39 @@ const RecordButton = ({ onRecordingComplete }: RecordButtonProps) => {
         }
       } catch (error) {
         console.error('Error stopping recording:', error);
+        toast({
+          title: "Error",
+          description: "Failed to stop recording properly.",
+          variant: "destructive"
+        });
       }
+    } else {
+      console.warn('MediaRecorder not active, nothing to stop');
     }
   };
 
+  // Cleanup on component unmount
   useEffect(() => {
     return () => {
-      if (mediaRecorderRef.current && isRecording) {
-        mediaRecorderRef.current.stop();
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        try {
+          mediaRecorderRef.current.stop();
+        } catch (e) {
+          console.error('Error stopping MediaRecorder during cleanup:', e);
+        }
       }
       
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
       }
       
       if (timerRef.current) {
         clearInterval(timerRef.current);
+        timerRef.current = null;
       }
     };
-  }, [isRecording]);
+  }, []);
 
   return (
     <div className="flex flex-col items-center justify-center">

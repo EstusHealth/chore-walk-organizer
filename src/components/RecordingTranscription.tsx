@@ -31,6 +31,8 @@ const RecordingTranscription = ({
     }
 
     // Validate blob before processing
+    console.log(`Audio blob received: ${audioBlob.size} bytes, type: ${audioBlob.type}`)
+    
     if (audioBlob.size < 1000) {
       console.log(`Audio blob too small (${audioBlob.size} bytes). Not processing.`)
       toast({
@@ -41,8 +43,6 @@ const RecordingTranscription = ({
       return
     }
 
-    console.log(`Processing audio blob: ${audioBlob.size} bytes, type: ${audioBlob.type}`)
-    
     // We have a valid blob: generate preview URL and start transcription
     const url = URL.createObjectURL(audioBlob)
     setAudioUrl(url)
@@ -69,7 +69,9 @@ const RecordingTranscription = ({
         if (parts.length !== 2) {
           throw new Error('Invalid Data URL format from audio blob')
         }
+        
         const rawBase64 = parts[1]
+        console.log(`Audio base64 data length: ${rawBase64.length} characters`)
 
         // 3) Invoke Supabase Edge Function
         console.log('Invoking transcribe-audio function...')
@@ -87,27 +89,29 @@ const RecordingTranscription = ({
 
         // 4) Handle errors
         if (error) {
-          console.error('Edge Function error:', { error, data })
+          console.error('Edge Function error:', error)
           throw new Error(
             `Transcription function error: ${error.message || 'Unknown error'}`
           )
         }
 
-        // 5) Ensure we have text returned
-        if (!data?.text) {
-          console.error('No text field in transcription response:', data)
-          if (data?.error) {
-            throw new Error(`Transcription error: ${data.error}`)
-          } else {
-            throw new Error('Transcription succeeded but returned no text')
-          }
+        // 5) Check for API errors returned in the data
+        if (data?.error) {
+          console.error('Transcription API error:', data.error)
+          throw new Error(`API error: ${data.error}`)
         }
 
-        // 6) Success!
+        // 6) Ensure we have text returned
+        if (!data?.text) {
+          console.error('No text field in transcription response:', data)
+          throw new Error('Transcription succeeded but returned no text')
+        }
+
+        // 7) Success!
         console.log('Transcription result:', data.text)
         toast({
           title: 'Transcription Complete',
-          description: 'Your recording was transcribed successfully using Google Gemini.',
+          description: 'Your recording was transcribed successfully using Google Speech-to-Text.',
         })
         onTranscriptionComplete(data.text)
       } catch (err: any) {
@@ -132,7 +136,10 @@ const RecordingTranscription = ({
       }
     }
 
-    processAudio()
+    // Start processing with slight delay to ensure UI is updated first
+    setTimeout(() => {
+      processAudio()
+    }, 100)
 
     return () => {
       // Cleanup when unmounting or blob changes
@@ -155,7 +162,7 @@ const RecordingTranscription = ({
       {isProcessing ? (
         <div className="flex items-center justify-center p-4 text-chore-600">
           <Loader2 size={20} className="animate-spin mr-2" />
-          <span>Transcribing your recording with Google Gemini...</span>
+          <span>Transcribing your recording with Google Speech-to-Text...</span>
         </div>
       ) : transcriptionError ? (
         <div className="p-2 text-red-500 text-sm border border-red-200 rounded bg-red-50">

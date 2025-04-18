@@ -42,26 +42,12 @@ serve(async (req) => {
     }
     
     try {
-      // Convert base64 to binary
-      const binaryString = atob(base64Data);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
+      console.log("Sending request to Google Speech-to-Text API...");
       
-      console.log("Converted to binary data of length:", bytes.length, "bytes");
-      
-      if (bytes.length < 1000) {
-        throw new Error('Converted binary audio data too small');
-      }
-      
-      console.log("Sending request to Google Gemini API...");
-      
-      // Send to Google Gemini Speech-to-Text API
-      const response = await fetch('https://speech.googleapis.com/v1/speech:recognize', {
+      // Send to Google Speech-to-Text API
+      const response = await fetch('https://speech.googleapis.com/v1/speech:recognize?key=' + apiKey, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -79,12 +65,12 @@ serve(async (req) => {
         }),
       });
 
-      console.log("Google Gemini API response status:", response.status);
+      console.log("Google Speech-to-Text API response status:", response.status);
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Google Gemini API error:', response.status, errorText);
-        throw new Error(`Google Gemini API error: ${response.status} - ${errorText}`);
+        console.error('Google Speech-to-Text API error:', response.status, errorText);
+        throw new Error(`Google Speech-to-Text API error: ${response.status} - ${errorText}`);
       }
 
       const result = await response.json();
